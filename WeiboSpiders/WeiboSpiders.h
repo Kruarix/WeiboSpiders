@@ -19,6 +19,7 @@
 //JSON
 #include <qjsondocument.h>
 #include <qjsonobject.h>
+#include <qjsonarray.h>
 //文件流
 #include <qfile.h>
 
@@ -55,7 +56,7 @@ public slots:
     //写文件
     bool WriteToFile(QString uid);
     //读文件
-    bool ReadFromFile();
+    QJsonArray ReadFromFile();
     //获取ULE内容
     bool onAddUidButtonClicked();
 

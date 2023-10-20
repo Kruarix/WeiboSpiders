@@ -46,7 +46,7 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
 
 
     //链接
-    connect(ui.addUidButton, &QPushButton::clicked, this, &WeiboSpiders::WriteToFile);
+    connect(ui.addUidButton, &QPushButton::clicked, this, &WeiboSpiders::onAddUidButtonClicked);
 
 }
 
@@ -116,6 +116,8 @@ bool  WeiboSpiders::onAddUidButtonClicked()
         return true;
     }
     else {
+        //清空ULE
+        ui.uidLineEdit->clear();
         return false;
     }
 }
@@ -130,8 +132,8 @@ bool WeiboSpiders::WriteToFile(QString uid)
     ////将JSON对象转为QJsonDocument
     //QJsonDocument jsonDoc(jsonObject);
 
-    ////打开一个文件以写入JSON数据
-    //QFile file("uidData.json");
+    //打开一个文件以写入JSON数据
+    QFile file("uidData.json");
     //if (file.open(QFile::WriteOnly | QFile::Text)) {
     //    file.write(jsonDoc.toJson());
     //    file.close();
@@ -142,11 +144,60 @@ bool WeiboSpiders::WriteToFile(QString uid)
     //    qCritical() << "无法打开文件进行写入.";
     //}
 
+    //读取文件数据
+    QJsonArray dataArray = ReadFromFile();
+
+    //检查是否已经存在相同的uid
+    bool uidExists = false;
+    for (const QJsonValue &value : dataArray) {
+        if (value.isObject()) {
+            QJsonObject obj = value.toObject();
+            if (obj["uid"] == uid) {
+                uidExists = true;
+                break;
+            }
+        }
+    }
+
+    if (!uidExists) {
+        //存在不相同的uid,追加数据
+        QJsonObject newData;
+
+        //网络请求博主信息
+
+
+        newData["uid"] = uid;
+        newData["name"] = "测试daw@da|;;dkaw";
+
+        dataArray.append(newData);
+
+        //写入更新后的JSON数据到文件
+        if (file.open(QFile::WriteOnly | QFile::Text)) {
+            QJsonDocument updateDoc(dataArray);
+            file.write(updateDoc.toJson());
+            file.close();
+            qDebug() << "数据已成功追加到文件.";
+            return true;
+        }
+        else {
+            qCritical() << "无法打开文件进行写入.";
+            return false;
+        }
+
+    }
+    else {
+        qDebug() << "相同的uid已存在，不进行增加.";
+        return false;
+    }
+
+
+
+
 
     return false;
 }
 
-bool WeiboSpiders::ReadFromFile()
+QJsonArray WeiboSpiders::ReadFromFile()
 {
     //打开文件以读取数据
     QFile file("uidData.json");
@@ -157,11 +208,12 @@ bool WeiboSpiders::ReadFromFile()
         //将文件数据解析为JSON数组
         QJsonDocument doc = QJsonDocument::fromJson(data);
         if (doc.isArray()) {
-
+            QJsonArray dataArray = doc.array();
+            return dataArray;
         }
-
     }
 
+    // 如果doc.isArray()不成立或文件读取失败，返回一个空的QJsonArray
+    return QJsonArray();
 
-    return false;
 }
