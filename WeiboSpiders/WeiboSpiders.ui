@@ -37,6 +37,9 @@ font-size: 16px;
 background-color: rgb(225, 225, 225);
 border-radius: 10px;
 }
+QGroupBox::title{
+margin-top:10px;
+}
 </string>
    </property>
    <property name="title">
@@ -52,9 +55,9 @@ border-radius: 10px;
     <property name="geometry">
      <rect>
       <x>10</x>
-      <y>20</y>
+      <y>40</y>
       <width>181</width>
-      <height>311</height>
+      <height>291</height>
      </rect>
     </property>
     <property name="styleSheet">
@@ -62,25 +65,28 @@ border-radius: 10px;
 font-size: 14px;
 border: 5px solid white;
 border-radius: 10px;
+Show-decoration-selected:1;
+}
+
+QListView::item{
+background-color: transparent;
+color: black;
+padding: 5px;
 }
 
 QListView::item:hover{
 background-color: transparent;
-padding: 5px;
-border-left: 3px solid rgb(130, 130, 130);
+padding: 3px;
+border-left: 2px solid rgb(130, 130, 130);
 }
 
 QListView::item:selected{
 background-color: transparent;
 color: black;
-padding: 10px;
-border-left: 3px solid black;
+padding: 3px;
+border-left: 2px solid black;
 }
 
-QScrollBar::vertical{
-background-color: rgb(0, 255, 0);
-width: 5px;
-}
 
 </string>
     </property>
@@ -218,7 +224,7 @@ QPushButton:pressed, QPushButton:checked {
     <string>微博定时工具</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="pushButton_2">
+  <widget class="QPushButton" name="configButton">
    <property name="geometry">
     <rect>
      <x>540</x>
