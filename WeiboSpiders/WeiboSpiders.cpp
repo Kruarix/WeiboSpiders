@@ -7,7 +7,7 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
     ui.setupUi(this);
 
     //设置全局
-    manager = new QNetworkAccessManager(this);
+    
 
     //去掉标题栏
     setWindowFlag(Qt::FramelessWindowHint);
@@ -26,6 +26,12 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
     connect(ui.addUidButton, &QPushButton::clicked, this, &WeiboSpiders::onAddUidButtonClicked);
     //设置
     connect(ui.configButton, &QPushButton::clicked, this, &WeiboSpiders::toConfig);
+    //用户列表
+
+    
+    //Test
+
+    
 
 }
 
@@ -87,27 +93,35 @@ void WeiboSpiders::closeEvent(QCloseEvent* e)
 
 }
 
-
 void WeiboSpiders::GetUserInfo(QString uid)
 {
+    manager = new QNetworkAccessManager(this);
 
     QNetworkRequest request;
     request.setUrl(QUrl("https://weibo.com/ajax/profile/info?uid="+uid)); // 设置请求的URL
     // 如果需要设置HTTP请求头，可以使用request.setHeader()方法
     // 设置Cookie，将你的Cookie字符串替换成实际的Cookie值
     
+    QByteArray cookie = GetCookie().toUtf8();
 
-    request.setRawHeader("Cookie", "SINAGLOBAL=912869638359.6813.1697710139455; ULV=1697710139491:1:1:1:912869638359.6813.1697710139455:; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9Wh7bdwKck40wuI.BMIIyA.S5JpX5KMhUgL.Fo-cShM7eK-4eo.2dJLoIf2LxKqL1KqLBo5LxKqL1KMLBoqLxKBLB.zLBKeLxKML1KBLBo-LxK-LB-BL1K5LxKnL1-zL1hqLxKnL1K.LB-zLxK-L1h-L1h.LxKMLB.-LB.Bt; XSRF-TOKEN=Z-BDG57eYpv923SfaI4jRnMz; ALF=1700548297; SSOLoginState=1697956298; SCF=AtAS8Ui1iUt5xJACpuSK9NNprafl8bSgDInJr8QRvx3euFN9I7X2Tbqi0Y3-FMDnG_SiDyNIgCGbW3q-zv9tiy4.; SUB=_2A25IMLGaDeRhGeNI71UR8SvFyTWIHXVrR6RSrDV8PUNbmtAbLXXukW9NSHPv23gMU122o1xcETOnhJdzH-rcnWiE; WBPSESS=3v-qpO0mmLJXfcpbEMQPP69e6clsA8vJkSjyOErpzGjEYS6cpiv5s5UrUds3STE8tESiUuxKal_AlXhoymsAlsbY9pIq3G9FyL7wXfj-COuJMzbelNxFtKEFfyjlTxiIz3YX4W8lb2FrWc21nCJlmQ==");
-
+    request.setRawHeader("Cookie", cookie);
 
 
     QNetworkReply* reply = manager->get(request);
+    
+
 
     // 连接finished信号以处理响应
     connect(reply, &QNetworkReply::finished, this, [this, reply]() {
         if (reply->error() == QNetworkReply::NoError) {
+
             // 在这里处理data，例如解析JSON等
             QJsonObject mainObj = QJsonDocument::fromJson(reply->readAll()).object();
+
+            //
+            /*QJsonDocument jsonDoc(mainObj);
+            QString jsonString = jsonDoc.toJson(QJsonDocument::Compact);
+            QMessageBox::information(this, "reply", jsonString);*/
 
             if (mainObj.contains("data")) {
 
@@ -131,13 +145,13 @@ void WeiboSpiders::GetUserInfo(QString uid)
                 QMessageBox::information(this, "提示", "可能不存在该用户.");
             }
 
-            
         }
         else {
             QMessageBox::information(this, "网络错误", "获取用户信息失败.");
             qDebug() << "ok";
         }
         reply->deleteLater(); // 释放资源
+        manager->clearAccessCache();
 
         // 请求完成后执行需要的操作
         });
@@ -161,24 +175,8 @@ void WeiboSpiders::UserListRender()
     QStringListModel* listModel = new QStringListModel(list);
     listView->setModel(listModel);  //设置模型到listview上
 
-    //选中
-    QItemSelectionModel* selectionModel = listView->selectionModel();
-    int index = 0;
-    for (const QJsonValue &value : userList) {
-        if (value.isObject()) {
-            QJsonObject obj = value.toObject();
-            if (obj["pick"] == 1) {
-                QModelIndex indexToSelect = listModel->index(index, 0); // 用你的实际行和列替换row和column
-                selectionModel->select(indexToSelect, QItemSelectionModel::Select); // 设置项为选中状态
-            }
-        }
-        index++;
-    }
-
-    
 
     listView->setEditTriggers(QAbstractItemView::NoEditTriggers);  // 禁用编辑触发方式
-    listView->setSelectionMode(QAbstractItemView::MultiSelection);  // 启用多选
     listView->setSpacing(3);    //设置数据间隔
 
     //自定义滚动条
@@ -191,6 +189,100 @@ void WeiboSpiders::UserListRender()
 
     listView->setVerticalScrollBar(verticalScrollBar);
 
+    // 连接点击信号到槽函数
+    connect(listView, SIGNAL(clicked(const QModelIndex&)), this, SLOT(onItemClicked(const QModelIndex&)));
+
+}
+
+QString WeiboSpiders::GetFilePath()
+{
+    char buf[0xff];
+    GetPrivateProfileStringA("main", "filePath", "none", buf, 0xff, ".\\config.ini");
+
+    QString filePath = QString::fromUtf8(buf);
+
+    return filePath;
+}
+
+void WeiboSpiders::UserAvatarRender()
+{
+    
+
+
+    if (!currentUser.isEmpty()) {
+
+        manager = new QNetworkAccessManager(this);
+
+        QNetworkRequest request;
+        request.setUrl(QUrl(currentUser["avatar"].toString())); // 设置请求的URL
+        // 如果需要设置HTTP请求头，可以使用request.setHeader()方法
+        // 设置Cookie，将你的Cookie字符串替换成实际的Cookie值
+
+        QByteArray cookie = GetCookie().toUtf8();
+
+        request.setRawHeader("Cookie", cookie);
+        
+        //反防爬虫机制
+        //request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+        request.setRawHeader("User-Agent", "Apifox/1.0.0 (https://apifox.com)");
+        request.setRawHeader("Accept", "*/*");
+        request.setRawHeader("Host", "tvax2.sinaimg.cn");
+        request.setRawHeader("Connection", "keep-alive");
+
+
+        QNetworkReply* reply = manager->get(request);
+
+        // 连接finished信号以处理响应
+        connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+            if (reply->error() == QNetworkReply::NoError) {
+
+                // 从网络响应中读取图像数据
+                QByteArray imageData = reply->readAll();
+
+                // 加载图像数据到 QPixmap
+                QPixmap pixmap;
+                pixmap.loadFromData(imageData);
+
+                if (!pixmap.isNull()) {
+
+                    // 调整QLabel以适应图片大小
+                    ui.avatarImg->setScaledContents(true);
+
+                    // 设置图片
+                    ui.avatarImg->setPixmap(pixmap);
+
+                    // 设置名称
+                    ui.nameShow->setText(currentUser["name"].toString());
+                }
+                else {
+                    qWarning("无法加载图片");
+                }
+        
+                
+
+            }
+            else {
+                QMessageBox::information(this, "网络错误", "获取用户头像失败.");
+                QMessageBox::information(this, "t", reply->readAll());
+                qDebug() << "ok";
+            }
+            reply->deleteLater(); // 释放资源
+            manager->clearAccessCache();
+
+            // 请求完成后执行需要的操作
+            });
+
+    }
+}
+
+QString WeiboSpiders::GetCookie()
+{
+    char buf[0xfff];
+    GetPrivateProfileStringA("main", "cookie", "none", buf, 0xfff, ".\\config.ini");
+
+    QString cookie = QString::fromUtf8(buf);
+
+    return cookie;
 }
 
 bool  WeiboSpiders::onAddUidButtonClicked()
@@ -215,6 +307,34 @@ bool  WeiboSpiders::onAddUidButtonClicked()
         ui.uidLineEdit->clear();
         return false;
     }
+}
+
+void WeiboSpiders::onItemClicked(const QModelIndex& index)
+{
+    // 获取用户点击的项的数据
+    QString selectedItem = index.data(Qt::DisplayRole).toString();
+
+    // 在这里执行你希望的操作，例如显示选中项的详细信息或处理其他逻辑
+    // 你可以使用selectedItem变量来访问选中的项的数据
+
+    //读取文件
+    QJsonArray uidList = ReadFromFile();
+    //根据名称查找
+    for ( const QJsonValue &value : uidList) {
+        if (value.isObject()) {
+            QJsonObject obj = value.toObject();
+            if (obj["name"] == selectedItem) {
+                //设置当前选中
+                currentUser = obj;
+                
+            }
+        }
+    }
+
+    //获取选中头像
+    UserAvatarRender();
+
+
 }
 
 bool WeiboSpiders::WriteToFile(QJsonObject userJson)
@@ -254,7 +374,8 @@ bool WeiboSpiders::WriteToFile(QJsonObject userJson)
 
             newData["uid"] = uid;
             newData["name"] = userJson["screen_name"];
-            newData["pick"] = 1;
+            newData["pick"] = 0;
+            newData["avatar"] = userJson["avatar_large"];
 
             dataArray.append(newData);
 

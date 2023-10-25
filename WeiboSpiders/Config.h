@@ -1,4 +1,4 @@
-#pragma once
+ï»¿#pragma once
 
 #include <QDialog>
 #include "ui_Config.h"
@@ -7,9 +7,13 @@
 
 //QMouseEvent
 #include <qevent.h>
-//ini´æ´¢
+//iniå­˜å‚¨
 #include <iostream>
 #include <Windows.h>
+//QMessageBox
+#include <qmessagebox.h>
+//QFilePath
+#include <qfiledialog.h>
 
 
 
@@ -27,33 +31,44 @@ private:
 
 
 private:
-    //¼ÇÂ¼Êó±ê×ó¼üµã»÷Ê±µÄÎ»ÖÃ
+    //è®°å½•é¼ æ ‡å·¦é”®ç‚¹å‡»æ—¶çš„ä½ç½®
     QPoint m_prePoint;
-    //¼ÇÂ¼Êó±ê×ó¼üÊÇ·ñ°´ÏÂ×´Ì¬
+    //è®°å½•é¼ æ ‡å·¦é”®æ˜¯å¦æŒ‰ä¸‹çŠ¶æ€
     bool m_islBtn{};
 
-    //×Ô¶¯Æô¶¯
+    //è‡ªåŠ¨å¯åŠ¨
     bool isAutoStart;
-    //×Ô¶¯ÏÂÔØ
+    //è‡ªåŠ¨ä¸‹è½½
     bool isAutoDownload;
 
 
-    //Êó±êÒÆ¶¯¡¢µã»÷ºÍÊÍ·Å·½·¨ÖØĞ´
+    //é¼ æ ‡ç§»åŠ¨ã€ç‚¹å‡»å’Œé‡Šæ”¾æ–¹æ³•é‡å†™
     void mousePressEvent(QMouseEvent* e);
     void mouseMoveEvent(QMouseEvent* e);
     void mouseReleaseEvent(QMouseEvent* e);
 
 
-    //ÉèÖÃCookie
-    bool SetCookie();
-    //ÉèÖÃ×Ô¶¯Æô¶¯
+    //è®¾ç½®è·å–Cookie
+    void SetCookie();
+    QString GetCookie();
+    //è®¾ç½®è·å–è‡ªåŠ¨å¯åŠ¨
     bool SetStart();
-    //ÉèÖÃ×Ô¶¯ÏÂÔØ
+    bool GetStart();
+    //è®¾ç½®è·å–è‡ªåŠ¨ä¸‹è½½
     bool SetDownload();
+    bool GetDownload();
 
-    //Ó¦ÓÃ
+    //æ¸²æŸ“æ•°æ®
+    bool ConfigRender();
+
+    //æ–‡ä»¶è·¯å¾„è®¾ç½®ã€è·å–
+    void SetFilePath();
+    QString GetFilePath();
+
+
+    //åº”ç”¨
     void ApplyConfig();
-    //È¡Ïû
+    //å–æ¶ˆ
     void CancelConfig();
 
 };

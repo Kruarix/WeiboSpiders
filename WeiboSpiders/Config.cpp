@@ -1,4 +1,4 @@
-#include "Config.h"
+ï»¿#include "Config.h"
 
 Config::Config(QWidget *parent)
 	: QDialog(parent)
@@ -6,15 +6,23 @@ Config::Config(QWidget *parent)
 	ui.setupUi(this);
 
 
-    //È¥µô±êÌâÀ¸
+    //åŽ»æŽ‰æ ‡é¢˜æ 
     setWindowFlag(Qt::FramelessWindowHint);
 
-    //ÉèÖÃ´°¿ÚÍ¸Ã÷¶È
+    //è®¾ç½®çª—å£é€æ˜Žåº¦
     setWindowOpacity(0.98);
+    
+    
 
+    ConfigRender();
 
-    //Á´½Ó
+    //é“¾æŽ¥
+    //åº”ç”¨æŒ‰é’®
     connect(ui.applyButton, &QPushButton::clicked, this, &Config::ApplyConfig);
+    //å–æ¶ˆæŒ‰é’®
+    connect(ui.cancelButton, &QPushButton::clicked, this, &Config::CancelConfig);
+    //æ–‡ä»¶è·¯å¾„è®¾ç½®
+    connect(ui.filePathButton, &QPushButton::clicked, this, &Config::SetFilePath);
 
 }
 
@@ -23,49 +31,63 @@ Config::~Config()
 
 void Config::mousePressEvent(QMouseEvent * e)
 {
-    //e->button()»ñÈ¡µã»÷µÄ°´¼ü£¬Èç¹ûÎªÊó±ê×ó¼ü
+    //e->button()èŽ·å–ç‚¹å‡»çš„æŒ‰é”®ï¼Œå¦‚æžœä¸ºé¼ æ ‡å·¦é”®
     if (e->button() & Qt::LeftButton) {
-        //±£´æÒ»ÏÂ×´Ì¬
+        //ä¿å­˜ä¸€ä¸‹çŠ¶æ€
         m_islBtn = true;
-        //¼ÇÂ¼Êó±êµÄÎ»ÖÃ£¨Êó±êÔÚÆÁÄ»µÄÎ»ÖÃ - ´°¿ÚÔÚÆÁÄ»µÄÎ»ÖÃ£©
+        //è®°å½•é¼ æ ‡çš„ä½ç½®ï¼ˆé¼ æ ‡åœ¨å±å¹•çš„ä½ç½® - çª—å£åœ¨å±å¹•çš„ä½ç½®ï¼‰
         m_prePoint = e->globalPos() - frameGeometry().topLeft();
     }
-    //Èç¹ûÎªÊó±êÓÒ¼ü
+    //å¦‚æžœä¸ºé¼ æ ‡å³é”®
     else if (e->button() & Qt::RightButton)
     {
-        //ÆäËû¹¦ÄÜ
+        //å…¶ä»–åŠŸèƒ½
     }
 }
 
 void Config::mouseMoveEvent(QMouseEvent* e)
 {
-    //ÅÐ¶Ï
+    //åˆ¤æ–­
     if (m_islBtn) {
-        //ÒÆ¶¯£¨È«¾ÖÊó±êÎ»ÖÃ - Ïà¶Ô´°¿ÚµÄÊó±êÎ»ÖÃ = ´°¿ÚÔÚÈ«¾ÖµÄÎ»ÖÃ£©
+        //ç§»åŠ¨ï¼ˆå…¨å±€é¼ æ ‡ä½ç½® - ç›¸å¯¹çª—å£çš„é¼ æ ‡ä½ç½® = çª—å£åœ¨å…¨å±€çš„ä½ç½®ï¼‰
         move(e->globalPos() - m_prePoint);
     }
 }
 
 void Config::mouseReleaseEvent(QMouseEvent* e)
 {
-    //Êó±ê×ó¼üÊÍ·Å
+    //é¼ æ ‡å·¦é”®é‡Šæ”¾
     if (e->button() & Qt::LeftButton) {
         m_islBtn = false;
     }
 }
 
-bool Config::SetCookie()
+void Config::SetCookie()
 {
-    //»ñÈ¡cookie
+    //èŽ·å–cookie
     QString cookie = ui.cookieLineEdit->text();
 
     WritePrivateProfileStringA("main", "cookie", (LPCSTR)cookie.toLocal8Bit(), ".\\config.ini");
 
 
-    return true;
+}
+
+QString Config::GetCookie()
+{
+    char buf[0xfff];
+    GetPrivateProfileStringA("main", "cookie", "none", buf, 0xfff, ".\\config.ini");
+
+    QString cookie = QString::fromUtf8(buf);
+
+    return cookie;
 }
 
 bool Config::SetStart()
+{
+    return false;
+}
+
+bool Config::GetStart()
 {
     return false;
 }
@@ -75,9 +97,51 @@ bool Config::SetDownload()
     return false;
 }
 
+bool Config::GetDownload()
+{
+    return false;
+}
+
+bool Config::ConfigRender()
+{
+    QString cookie = GetCookie();
+    //è®¾ç½®cookie
+    ui.cookieLineEdit->setText(cookie);
+    QString filePath = GetFilePath();
+    ui.filePathLineEdit->setText(filePath);
+
+    return false;
+}
+
+void Config::SetFilePath()
+{
+    QString filePath = QFileDialog::getExistingDirectory(this, "é€‰æ‹©æ–‡ä»¶è·¯å¾„", QDir::homePath());
+
+    if (!filePath.isEmpty()) {
+        // åœ¨QLineEditä¸­æ˜¾ç¤ºé€‰æ‹©çš„æ–‡ä»¶è·¯å¾„
+        ui.filePathLineEdit->setText(filePath);
+
+        WritePrivateProfileStringA("main", "filePath", (LPCSTR)filePath.toLocal8Bit(), ".\\config.ini");
+
+    }
+}
+
+QString Config::GetFilePath()
+{
+
+    char buf[0xfff];
+    GetPrivateProfileStringA("main", "filePath", "none", buf, 0xfff, ".\\config.ini");
+
+    QString filePath = QString::fromUtf8(buf);
+
+    return filePath;
+}
+
 void Config::ApplyConfig()
 {
+    //è®¾ç½®Cookie
     SetCookie();
+
 
 
     this->close();

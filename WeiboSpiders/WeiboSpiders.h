@@ -16,6 +16,8 @@
 #include <qstringlistmodel.h>
 //
 #include <qscrollbar.h>
+//QFilePath
+#include <qfiledialog.h>
 
 //网络
 #include <qnetworkaccessmanager.h>//网络管理
@@ -28,6 +30,12 @@
 #include <qjsonarray.h>
 //文件流
 #include <qfile.h>
+//QLabel
+#include <qlabel.h>
+//QPixmap
+#include <qpixmap.h>
+////QPainter
+//#include <qpainter.h>
 
 
 class WeiboSpiders : public QWidget
@@ -52,6 +60,8 @@ private:
     QNetworkAccessManager* manager;
     //设置窗口
     Config config;
+    //当前选择用户
+    QJsonObject currentUser{};
 
     //鼠标移动、点击和释放方法重写
     void mousePressEvent(QMouseEvent* e);
@@ -60,6 +70,9 @@ private:
 
     //用户列表渲染
     void UserListRender();
+    //用户头像渲染
+    void UserAvatarRender();
+
 
     //网络请求
     void GetUserInfo(QString uid); //获取uid用户信息
@@ -68,9 +81,15 @@ private:
     bool WriteToFile(QJsonObject userJson);
     //读文件
     QJsonArray ReadFromFile();
+    //文件路径获取
+    QString GetFilePath();
+
+
+
+    //获取Cookie
+    QString GetCookie();
     
-
-
+    
 
 //槽函数
 public slots:
@@ -78,6 +97,8 @@ public slots:
     bool toConfig();
     //获取ULE内容
     bool onAddUidButtonClicked();
+    //获取ListView点击事件
+    void onItemClicked(const QModelIndex& index);
 
 
 
