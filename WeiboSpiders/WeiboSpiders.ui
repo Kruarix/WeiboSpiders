@@ -239,7 +239,7 @@ QPushButton:pressed, QPushButton:checked {
      <attribute name="title">
       <string>基础功能</string>
      </attribute>
-     <widget class="QPushButton" name="loadButton">
+     <widget class="QPushButton" name="downloadButton">
       <property name="geometry">
        <rect>
         <x>370</x>
@@ -404,6 +404,58 @@ font-size:14px;
       </property>
       <property name="format">
        <string notr="true">%p%</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_4">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>320</y>
+        <width>51</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>总图片数</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="fileNum">
+      <property name="geometry">
+       <rect>
+        <x>70</x>
+        <y>320</y>
+        <width>61</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="label_6">
+      <property name="geometry">
+       <rect>
+        <x>150</x>
+        <y>320</y>
+        <width>51</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>已下载数</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="downloadNum">
+      <property name="geometry">
+       <rect>
+        <x>210</x>
+        <y>320</y>
+        <width>61</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
       </property>
      </widget>
     </widget>

@@ -18,6 +18,8 @@
 #include <qscrollbar.h>
 //QFilePath
 #include <qfiledialog.h>
+//QTimer
+#include <qtimer.h>
 
 //网络
 #include <qnetworkaccessmanager.h>//网络管理
@@ -36,6 +38,9 @@
 #include <qpixmap.h>
 ////QPainter
 //#include <qpainter.h>
+//下载缓存
+#include "PhotoInfo.h"
+#include <qvector.h>
 
 
 class WeiboSpiders : public QWidget
@@ -62,6 +67,16 @@ private:
     Config config;
     //当前选择用户
     QJsonObject currentUser{};
+    //下载缓存数据
+    QVector<PhotoInfo> photoList;
+    //下载计数
+    int fileNum{};
+    //当前下载数
+    int currentNum{};
+    //开始日期
+    QDate startDate;
+    //结束日期
+    QDate endDate;
 
     //鼠标移动、点击和释放方法重写
     void mousePressEvent(QMouseEvent* e);
@@ -84,10 +99,21 @@ private:
     //文件路径获取
     QString GetFilePath();
 
-
-
     //获取Cookie
     QString GetCookie();
+
+    //下载逻辑
+    //1. 检查文件保存地址是否为空/是否可写/是否有写权限
+    //2. 获取所有照片id
+    //3. 下载所有照片
+
+    //下载按钮事件
+    void onDownloadButton();
+    //获取照片id
+    void catchPicInfo();
+    void getImageWall(QString sinceid);
+    //下载
+    void downloadPic();
     
     
 
@@ -107,3 +133,6 @@ protected:
     void closeEvent(QCloseEvent* e);
 
 };
+
+
+

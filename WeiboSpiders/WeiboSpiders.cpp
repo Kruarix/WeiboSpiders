@@ -7,7 +7,10 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
     ui.setupUi(this);
 
     //设置全局
-    
+    //当前时间
+    QDate currentDate = QDate::currentDate();
+    ui.startDate->setDate(currentDate);
+    ui.endDate->setDate(currentDate);
 
     //去掉标题栏
     setWindowFlag(Qt::FramelessWindowHint);
@@ -26,7 +29,8 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
     connect(ui.addUidButton, &QPushButton::clicked, this, &WeiboSpiders::onAddUidButtonClicked);
     //设置
     connect(ui.configButton, &QPushButton::clicked, this, &WeiboSpiders::toConfig);
-    //用户列表
+    //下载按钮
+    connect(ui.downloadButton, &QPushButton::clicked, this, &WeiboSpiders::onDownloadButton);
 
     
     //Test
@@ -207,8 +211,6 @@ QString WeiboSpiders::GetFilePath()
 void WeiboSpiders::UserAvatarRender()
 {
     
-
-
     if (!currentUser.isEmpty()) {
 
         manager = new QNetworkAccessManager(this);
@@ -228,7 +230,6 @@ void WeiboSpiders::UserAvatarRender()
         request.setRawHeader("Accept", "*/*");
         request.setRawHeader("Host", "tvax2.sinaimg.cn");
         request.setRawHeader("Connection", "keep-alive");
-
 
         QNetworkReply* reply = manager->get(request);
 
@@ -309,6 +310,46 @@ bool  WeiboSpiders::onAddUidButtonClicked()
     }
 }
 
+void WeiboSpiders::onDownloadButton()
+{
+    //禁用下载按钮
+    ui.downloadButton->setEnabled(false);
+
+    //检查路径
+    QString filePath = GetFilePath();
+
+    // 创建一个测试文件的绝对路径
+    QString testFilePath = filePath + "/test.txt";
+
+    QFile file(testFilePath);
+
+    if (! file.open(QIODevice::WriteOnly | QIODevice::Append)) {
+        // 文件路径不可写
+        // 执行相应的操作
+        QMessageBox::information(this, "tips", "设定文件夹的权限不足.");
+        ui.downloadButton->setEnabled(true);
+        return;
+    }
+
+    if ( currentUser.isEmpty()) {
+        // 
+        QMessageBox::information(this, "tips", "你还没有选择用户.");
+        ui.downloadButton->setEnabled(true);
+        return;
+    }
+
+    //设置日期范围
+    startDate = ui.startDate->date();
+    endDate = ui.endDate->date();
+    //初始化计数
+    fileNum = 0;
+    //初始化图片列表
+    photoList.clear();
+    //获取图片地址与下载
+    catchPicInfo();
+
+}
+
 void WeiboSpiders::onItemClicked(const QModelIndex& index)
 {
     // 获取用户点击的项的数据
@@ -334,6 +375,170 @@ void WeiboSpiders::onItemClicked(const QModelIndex& index)
     //获取选中头像
     UserAvatarRender();
 
+
+}
+
+void WeiboSpiders::catchPicInfo()
+{
+
+    //判断合法性
+    if (startDate > endDate) {
+        QMessageBox::warning(this, "警告", "日期设定不合法.");
+    }
+    else {
+
+        //获取下载数据
+        getImageWall(QString("0"));
+        
+
+    }
+
+}
+
+void WeiboSpiders::getImageWall(QString sinceId)
+{
+    //网络请求管理
+    manager = new QNetworkAccessManager(this);
+    QNetworkRequest request;
+
+    QString uid = currentUser["uid"].toString();
+
+    QString url{};
+    if (sinceId == "0") {
+        url = "https://weibo.com/ajax/profile/getImageWall?uid=" + uid + "&sinceid=0&has_album=true";
+    }
+    else {
+        url = "https://weibo.com/ajax/profile/getImageWall?uid=" + uid + "&sinceid=" + sinceId;
+    }
+
+
+    request.setUrl(QUrl(url)); // 设置请求的URL
+    // 设置Cookie，将你的Cookie字符串替换成实际的Cookie值
+    QByteArray cookie = GetCookie().toUtf8();
+
+    request.setRawHeader("Cookie", cookie);
+
+    //反防爬虫机制
+    //request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+    request.setRawHeader("User-Agent", "Apifox/1.0.0 (https://apifox.com)");
+    request.setRawHeader("Accept", "application/json, text/plain, */*");
+    request.setRawHeader("Host", "tvax2.sinaimg.cn");
+    request.setRawHeader("Connection", "keep-alive");
+
+    QNetworkReply* reply = manager->get(request);
+
+    // 连接finished信号以处理响应
+    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+        if (reply->error() == QNetworkReply::NoError) {
+
+            //JSON格式
+            QJsonObject mainObj = QJsonDocument::fromJson(reply->readAll()).object();
+
+            if (mainObj.contains("data")) {
+
+                QJsonObject dataObj = mainObj["data"].toObject();
+
+                
+                if (dataObj.contains("since_id")) {
+                    QString nextSinceId = dataObj["since_id"].toString();
+
+                    //正则表达式
+                    // 使用正则表达式匹配日期部分
+                    QRegularExpression regex("_(\\d{8})_-1"); // 匹配8位数字
+                    QRegularExpressionMatch match = regex.match(nextSinceId);
+
+                    if (match.hasMatch()) {
+                        QString matchedText = match.captured(1);
+
+                        qDebug() << "匹配的字段：" << matchedText;
+
+
+                        if (matchedText.length() == 8) {
+                            QDate date = QDate::fromString(matchedText, "yyyyMMdd");
+                            if (date.isValid()) {
+                                // 现在 "date" 包含了提取的日期
+                                qDebug() << "提取的日期：" << date;
+
+                                //判断日期范围
+                                if ( startDate <= date && date <= endDate  ) {
+
+                                    if (dataObj.contains("list")) {
+
+                                        QJsonArray listArray = dataObj["list"].toArray();
+
+                                        for (const QJsonValue& value : listArray) {
+                                            if (value.isObject()) {
+                                                QJsonObject item = value.toObject();
+
+                                                PhotoInfo pInfo(item["pid"].toString(), item["mid"].toString());
+
+                                                //加入缓存列表
+                                                photoList.append(pInfo);
+                                                //计数
+                                                fileNum++;
+                                            }
+                                        }
+
+                                    }
+
+                                    ui.fileNum->setText(QString::number(fileNum));
+                                    //执行下一分页
+                                    qDebug() << "执行下一分页" << nextSinceId;
+                                    QTimer::singleShot(50, this, [this, nextSinceId]() {
+                                        getImageWall(nextSinceId);
+                                        });
+
+                                }
+                                else
+                                {
+                                    //跳出循环
+                                    //调用下载函数
+                                    qDebug() << "进入下载";
+                                    downloadPic();
+                                }
+
+
+                            }
+                            else {
+                                qDebug() << "日期无效。";
+                            }
+                        }
+                        else {
+                            qDebug() << "找到的日期部分不是8位数字。";
+                        }
+                    }
+                    else {
+                        qDebug() << "未找到日期部分。";
+                    }
+                    
+                }
+            
+            }
+
+
+
+        }
+        else {
+            QMessageBox::information(this, "网络错误", "获取相册数据失败.");
+            QMessageBox::information(this, "t", reply->readAll());
+            qDebug() << "ok";
+        }
+        reply->deleteLater(); // 释放资源
+        manager->clearAccessCache();
+
+        // 请求完成后执行需要的操作
+        });
+
+}
+
+void WeiboSpiders::downloadPic()
+{
+    //
+
+    QMessageBox::information(this, "下载下载", QString::number(fileNum));
+
+    //启用下载按钮
+    ui.downloadButton->setEnabled(true);
 
 }
 
