@@ -149,12 +149,12 @@ border: 1px solid black;
       <rect>
        <x>20</x>
        <y>30</y>
-       <width>111</width>
+       <width>161</width>
        <height>20</height>
       </rect>
      </property>
      <property name="text">
-      <string>开机自动启动</string>
+      <string>开机自动启动(没实现)</string>
      </property>
     </widget>
     <widget class="QCheckBox" name="isAutoDownload">
@@ -167,7 +167,7 @@ border: 1px solid black;
       </rect>
      </property>
      <property name="text">
-      <string>自动下载</string>
+      <string>自动下载(没实现)</string>
      </property>
     </widget>
    </widget>

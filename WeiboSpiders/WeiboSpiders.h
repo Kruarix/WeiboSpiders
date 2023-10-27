@@ -18,6 +18,8 @@
 #include <qscrollbar.h>
 //QFilePath
 #include <qfiledialog.h>
+//QDIr
+#include <qdir.h>
 //QTimer
 #include <qtimer.h>
 
@@ -25,6 +27,11 @@
 #include <qnetworkaccessmanager.h>//网络管理
 #include <qnetworkreply.h>//网络应答
 #include <qnetworkrequest.h>//网络请求
+
+//
+#include <qmenu.h>
+#include <qaction.h>
+
 
 //JSON
 #include <qjsondocument.h>
@@ -71,8 +78,20 @@ private:
     QVector<PhotoInfo> photoList;
     //下载计数
     int fileNum{};
+    //下载进度
+    int proc{};
+    
+    //当前博文mid
+    QString currentMid;
     //当前下载数
     int currentNum{};
+    //下载错误数
+    int errorNum{};
+
+    //定时器
+    //请求定时器
+    QTimer* rqTimer;
+
     //开始日期
     QDate startDate;
     //结束日期
@@ -92,6 +111,10 @@ private:
     //网络请求
     void GetUserInfo(QString uid); //获取uid用户信息
     
+    //删除用户
+    void RemoveUid(QString name);
+    //删除确认框
+    bool deleteDialogShown;
     //写文件
     bool WriteToFile(QJsonObject userJson);
     //读文件
@@ -114,7 +137,8 @@ private:
     void getImageWall(QString sinceid);
     //下载
     void downloadPic();
-    
+    //下载逻辑
+    void savePic(PhotoInfo info, QString folderPath, int retryCount);
     
 
 //槽函数

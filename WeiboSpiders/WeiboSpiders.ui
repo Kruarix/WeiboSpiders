@@ -424,7 +424,7 @@ font-size:14px;
        <rect>
         <x>70</x>
         <y>320</y>
-        <width>61</width>
+        <width>51</width>
         <height>20</height>
        </rect>
       </property>
@@ -435,7 +435,7 @@ font-size:14px;
      <widget class="QLabel" name="label_6">
       <property name="geometry">
        <rect>
-        <x>150</x>
+        <x>130</x>
         <y>320</y>
         <width>51</width>
         <height>20</height>
@@ -448,9 +448,9 @@ font-size:14px;
      <widget class="QLabel" name="downloadNum">
       <property name="geometry">
        <rect>
-        <x>210</x>
+        <x>190</x>
         <y>320</y>
-        <width>61</width>
+        <width>51</width>
         <height>20</height>
        </rect>
       </property>
@@ -458,11 +458,53 @@ font-size:14px;
        <string>0</string>
       </property>
      </widget>
+     <widget class="QLabel" name="errorNum">
+      <property name="geometry">
+       <rect>
+        <x>310</x>
+        <y>320</y>
+        <width>51</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>0</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="errorShow">
+      <property name="geometry">
+       <rect>
+        <x>250</x>
+        <y>320</y>
+        <width>51</width>
+        <height>20</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>下载错误</string>
+      </property>
+     </widget>
     </widget>
     <widget class="QWidget" name="high">
      <attribute name="title">
       <string>高级功能</string>
      </attribute>
+     <widget class="QLabel" name="label_5">
+      <property name="geometry">
+       <rect>
+        <x>170</x>
+        <y>140</y>
+        <width>121</width>
+        <height>81</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>哈哈，没写完</string>
+      </property>
+      <property name="alignment">
+       <set>Qt::AlignCenter</set>
+      </property>
+     </widget>
     </widget>
    </widget>
   </widget>

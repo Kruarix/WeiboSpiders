@@ -12,6 +12,13 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
     ui.startDate->setDate(currentDate);
     ui.endDate->setDate(currentDate);
 
+    //删除框
+    deleteDialogShown = false;
+
+    //设置定时器
+    rqTimer = new QTimer(this);
+    rqTimer->setSingleShot(50);
+
     //去掉标题栏
     setWindowFlag(Qt::FramelessWindowHint);
     //保持窗口大小不变(去掉标题框其实已经把拉伸功能去掉了)
@@ -31,7 +38,6 @@ WeiboSpiders::WeiboSpiders(QWidget *parent)
     connect(ui.configButton, &QPushButton::clicked, this, &WeiboSpiders::toConfig);
     //下载按钮
     connect(ui.downloadButton, &QPushButton::clicked, this, &WeiboSpiders::onDownloadButton);
-
     
     //Test
 
@@ -179,7 +185,7 @@ void WeiboSpiders::UserListRender()
     QStringListModel* listModel = new QStringListModel(list);
     listView->setModel(listModel);  //设置模型到listview上
 
-
+    listView->setContextMenuPolicy(Qt::CustomContextMenu);   //自定义右键菜单
     listView->setEditTriggers(QAbstractItemView::NoEditTriggers);  // 禁用编辑触发方式
     listView->setSpacing(3);    //设置数据间隔
 
@@ -196,6 +202,33 @@ void WeiboSpiders::UserListRender()
     // 连接点击信号到槽函数
     connect(listView, SIGNAL(clicked(const QModelIndex&)), this, SLOT(onItemClicked(const QModelIndex&)));
 
+    // 右键删除
+    connect(listView, &QListView::customContextMenuRequested, [this, listView, listModel](const QPoint& pos) {
+        QModelIndex index = listView->indexAt(pos);
+        if (index.isValid()) {
+
+            if (!deleteDialogShown) {
+                QString itemText = index.data().toString();
+
+                // 在这里添加确认删除的对话框
+                int result = QMessageBox::question(nullptr, "确认", "你正在删除: " + itemText, QMessageBox::Yes | QMessageBox::No);
+                if (result == QMessageBox::Yes) {
+                    listModel->removeRow(index.row());
+                    RemoveUid(itemText);
+                    UserListRender();
+                }
+
+                deleteDialogShown = true;
+            }
+
+            
+        }
+        });
+
+    connect(listView, &QListView::entered, [this]() {
+        deleteDialogShown = false;
+        });
+
 }
 
 QString WeiboSpiders::GetFilePath()
@@ -204,8 +237,13 @@ QString WeiboSpiders::GetFilePath()
     GetPrivateProfileStringA("main", "filePath", "none", buf, 0xff, ".\\config.ini");
 
     QString filePath = QString::fromUtf8(buf);
+    if (filePath.isEmpty()) {
+        return QString("none");
+    }
+    else {
+        return filePath;
+    }
 
-    return filePath;
 }
 
 void WeiboSpiders::UserAvatarRender()
@@ -279,7 +317,7 @@ void WeiboSpiders::UserAvatarRender()
 QString WeiboSpiders::GetCookie()
 {
     char buf[0xfff];
-    GetPrivateProfileStringA("main", "cookie", "none", buf, 0xfff, ".\\config.ini");
+    GetPrivateProfileStringA("main", "cookie", "", buf, 0xfff, ".\\config.ini");
 
     QString cookie = QString::fromUtf8(buf);
 
@@ -318,31 +356,37 @@ void WeiboSpiders::onDownloadButton()
     //检查路径
     QString filePath = GetFilePath();
 
-    // 创建一个测试文件的绝对路径
-    QString testFilePath = filePath + "/test.txt";
+    QDir directory(filePath);
 
-    QFile file(testFilePath);
-
-    if (! file.open(QIODevice::WriteOnly | QIODevice::Append)) {
-        // 文件路径不可写
-        // 执行相应的操作
-        QMessageBox::information(this, "tips", "设定文件夹的权限不足.");
+    if (directory.exists()) {
+        qDebug() << "Directory exists and the path is valid.";
+    }
+    else {
+        QMessageBox::information(this, "tips", "文件夹路径有问题");
         ui.downloadButton->setEnabled(true);
         return;
     }
 
     if ( currentUser.isEmpty()) {
-        // 
         QMessageBox::information(this, "tips", "你还没有选择用户.");
         ui.downloadButton->setEnabled(true);
         return;
     }
+
 
     //设置日期范围
     startDate = ui.startDate->date();
     endDate = ui.endDate->date();
     //初始化计数
     fileNum = 0;
+    ui.fileNum->setText(QString::number(0));
+    currentNum = 0;
+    ui.downloadNum->setText(QString::number(0));
+    errorNum = 0;
+    ui.errorNum->setText(QString::number(0));
+    //初始化进度条
+    ui.progressBar->setValue(0);
+    proc = 0;
     //初始化图片列表
     photoList.clear();
     //获取图片地址与下载
@@ -428,7 +472,7 @@ void WeiboSpiders::getImageWall(QString sinceId)
     QNetworkReply* reply = manager->get(request);
 
     // 连接finished信号以处理响应
-    connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+    connect(reply, &QNetworkReply::finished, this, [this, reply, sinceId]() {
         if (reply->error() == QNetworkReply::NoError) {
 
             //JSON格式
@@ -484,9 +528,14 @@ void WeiboSpiders::getImageWall(QString sinceId)
                                     ui.fileNum->setText(QString::number(fileNum));
                                     //执行下一分页
                                     qDebug() << "执行下一分页" << nextSinceId;
-                                    QTimer::singleShot(50, this, [this, nextSinceId]() {
+                                    rqTimer->start();
+                                    rqTimer->singleShot(5, this, [this, nextSinceId]() {
                                         getImageWall(nextSinceId);
+                                        rqTimer->stop();
                                         });
+                                   
+
+
 
                                 }
                                 else
@@ -508,7 +557,8 @@ void WeiboSpiders::getImageWall(QString sinceId)
                         }
                     }
                     else {
-                        qDebug() << "未找到日期部分。";
+                        qDebug() << "未找到日期部分。进入下载";
+                        downloadPic();
                     }
                     
                 }
@@ -519,13 +569,17 @@ void WeiboSpiders::getImageWall(QString sinceId)
 
         }
         else {
-            QMessageBox::information(this, "网络错误", "获取相册数据失败.");
-            QMessageBox::information(this, "t", reply->readAll());
-            qDebug() << "ok";
+            /*QMessageBox::information(this, "网络错误", "获取相册数据失败.");
+            QMessageBox::information(this, "t", reply->readAll());*/
+            qDebug() << "获取相册数据失败.";
+            rqTimer->start();
+            rqTimer->singleShot(50, this, [this, sinceId]() {
+                getImageWall(sinceId);
+                rqTimer->stop();
+                });
+
         }
         reply->deleteLater(); // 释放资源
-        manager->clearAccessCache();
-
         // 请求完成后执行需要的操作
         });
 
@@ -533,12 +587,180 @@ void WeiboSpiders::getImageWall(QString sinceId)
 
 void WeiboSpiders::downloadPic()
 {
-    //
+    //QMessageBox::information(this, "下载下载", QString::number(fileNum));
 
-    QMessageBox::information(this, "下载下载", QString::number(fileNum));
+    //初始化下载数
+    currentNum = 0;
+    errorNum = 0;
 
-    //启用下载按钮
-    ui.downloadButton->setEnabled(true);
+    //获取用户名
+    QString currentName = currentUser["name"].toString();
+
+    QString folderPath = GetFilePath() + "/" + currentName;
+
+    //创建新文件夹
+    QDir currentDir(folderPath);
+    if (!currentDir.exists()) {
+        currentDir.mkpath(".");
+    }
+
+    //循环下载
+    for(const PhotoInfo &info : photoList) {
+        savePic(info, folderPath, 1);
+    }
+
+}
+
+void WeiboSpiders::RemoveUid(QString name)
+{
+    //打开一个文件以写入JSON数据
+    QFile file("uidData.json");
+
+    //读取文件数据
+    QJsonArray dataArray = ReadFromFile();
+
+
+    // 遍历 JSON 数组，查找要删除的元素
+    for (int i = 0; i < dataArray.size(); ++i) {
+        QJsonObject jsonObject = dataArray[i].toObject();
+
+        if (name == jsonObject["name"].toString()) {
+            // 找到匹配的元素，删除它
+            dataArray.removeAt(i);
+            qDebug() << "Deleted element with name: " << name;
+            break;  // 如果只想删除一个匹配的元素，可以使用break
+        }
+    }
+
+    //写入更新后的JSON数据到文件
+    if (file.open(QFile::WriteOnly | QFile::Text)) {
+        QJsonDocument updateDoc(dataArray);
+        file.write(updateDoc.toJson());
+        file.close();
+        qDebug() << "数据已成功追加到文件.";
+    }
+    else {
+        qCritical() << "无法打开文件进行写入.";
+    }
+
+}
+
+void WeiboSpiders::savePic(PhotoInfo info, QString folderPath, int retryCount)
+{
+    manager = new QNetworkAccessManager(this);
+
+    QNetworkRequest request;
+
+    QString mid = info.GetMid();
+    QString subFolderPath = folderPath + "/" + mid; // 子文件夹路径
+
+    // 创建子文件夹
+    QDir subDir(subFolderPath);
+    if (!subDir.exists()) {
+        subDir.mkpath(".");
+    }
+
+    // 使用 info.GetPid() 下载文件并保存到子文件夹
+    // 请根据您的网络请求方式和文件保存逻辑来实现下载
+
+    QString uid = currentUser["uid"].toString();
+
+    QString pid = info.GetPid();
+
+    QString url = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
+
+    request.setUrl(QUrl(url)); // 设置请求的URL
+    // 设置Cookie，将你的Cookie字符串替换成实际的Cookie值
+    QByteArray cookie = GetCookie().toUtf8();
+
+    request.setRawHeader("Cookie", cookie);
+
+    //反防爬虫机制
+    //request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+    request.setRawHeader("User-Agent", "Apifox/1.0.0 (https://apifox.com)");
+    request.setRawHeader("Accept", "application/json, text/plain, */*");
+    request.setRawHeader("Host", "tvax2.sinaimg.cn");
+    request.setRawHeader("Connection", "keep-alive");
+
+    QNetworkReply* reply = manager->get(request);
+
+    // 连接finished信号以处理响应
+    connect(reply, &QNetworkReply::finished, this, [this, info, reply, pid, subFolderPath, folderPath, retryCount]() {
+        int reC = retryCount;
+
+        if (reply->error() == QNetworkReply::NoError) {
+
+            QByteArray imageData = reply->readAll();
+            QString localFilePath = subFolderPath + "/" + pid + ".jpg"; // 本地文件路径
+
+            QFile localFile(localFilePath);
+            if (localFile.open(QIODevice::WriteOnly)) {
+                localFile.write(imageData);
+                localFile.close();
+
+                currentNum++;
+                ui.downloadNum->setText(QString::number(currentNum));
+
+                qDebug() << "图片已下载到本地：" << localFilePath;
+
+            }
+            else {
+                qDebug() << "无法打开本地文件：" << localFilePath;
+            }
+
+            reply->deleteLater(); // 释放资源
+
+        }
+        else {
+
+            // 处理错误的响应
+            if (reC < 5) {
+                // 如果重试次数小于5，发起重试
+                savePic(info, folderPath, reC++);
+            }
+            else {
+                // 重试达到5次，将照片存入txt文件
+                errorNum++;
+                ui.errorNum->setText(QString::number(errorNum));
+
+                QString errorFilePath = subFolderPath + "/" + pid + ".txt"; // 本地文件路径
+                QString imgUrl = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
+                QByteArray imgData = imgUrl.toUtf8(); // 将字符串转换为字节数组
+
+                QFile errorFile(errorFilePath);
+                if (errorFile.open(QIODevice::WriteOnly)) {
+                    errorFile.write(imgData);
+                    errorFile.close();
+                    qDebug() << "错误图片已缓存到本地：" << errorFilePath;
+                }
+                else {
+                    qDebug() << "无法打开本地文件：" << errorFilePath;
+                }
+            }
+            reply->deleteLater(); // 释放资源
+
+        }
+        reply->deleteLater(); // 释放资源
+
+        proc = (double)(currentNum + errorNum) / fileNum * 100;
+        ui.progressBar->setValue(proc);
+
+
+        if (currentNum + errorNum == fileNum) {
+            QMessageBox::information(this, "通知", "下载完毕！");
+            //启用下载按钮
+            ui.downloadButton->setEnabled(true);
+
+            rqTimer->start();
+            rqTimer->singleShot(1000, this, [this]() {
+                manager->clearAccessCache();
+                rqTimer->stop();
+                });
+
+        }
+
+
+        });
 
 }
 
@@ -575,7 +797,6 @@ bool WeiboSpiders::WriteToFile(QJsonObject userJson)
 
         if (!userJson.isEmpty())
         {
-            QMessageBox::information(this, "你好", "你过了name");
 
             newData["uid"] = uid;
             newData["name"] = userJson["screen_name"];
