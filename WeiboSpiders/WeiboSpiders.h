@@ -49,6 +49,9 @@
 #include "PhotoInfo.h"
 #include <qvector.h>
 
+//下载
+#include <Windows.h>
+#pragma comment(lib, "Urlmon.lib")
 
 class WeiboSpiders : public QWidget
 {
@@ -74,6 +77,8 @@ private:
     Config config;
     //当前选择用户
     QJsonObject currentUser{};
+    //当前下载位置
+    QString folderPath;
     //下载缓存数据
     QVector<PhotoInfo> photoList;
     //下载计数
@@ -87,6 +92,10 @@ private:
     int currentNum{};
     //下载错误数
     int errorNum{};
+    // 设置最大并发下载数
+    int maxConcurrentDownloads = 20; 
+    // 当前下载的索引
+    int currentIndex = 0; 
 
     //定时器
     //请求定时器
@@ -138,7 +147,7 @@ private:
     //下载
     void downloadPic();
     //下载逻辑
-    void savePic(PhotoInfo info, QString folderPath, int retryCount);
+    void savePic(PhotoInfo& info, QNetworkRequest& request);
     
 
 //槽函数

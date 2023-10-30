@@ -591,12 +591,15 @@ void WeiboSpiders::downloadPic()
 
     //初始化下载数
     currentNum = 0;
+    //初始化错误数
     errorNum = 0;
+    //初始化索引数
+    currentIndex = 0;
 
     //获取用户名
     QString currentName = currentUser["name"].toString();
 
-    QString folderPath = GetFilePath() + "/" + currentName;
+    folderPath = GetFilePath() + "/" + currentName;
 
     //创建新文件夹
     QDir currentDir(folderPath);
@@ -604,10 +607,38 @@ void WeiboSpiders::downloadPic()
         currentDir.mkpath(".");
     }
 
-    //循环下载
-    for(const PhotoInfo &info : photoList) {
-        savePic(info, folderPath, 1);
+    qDebug() << "准备初始化QNAM";
+    manager = new QNetworkAccessManager(this);
+    QNetworkRequest request;
+    ////
+
+    for (PhotoInfo &info : photoList) {
+
+        savePic(info, request);
+
     }
+
+    //
+    // 
+    //
+    //QVector<int> originalVector; // 原始 QVector，包含 3000 个元素
+    //// 为原始 QVector 填充数据，这里假设数据已准备好
+
+    //QVector<QVector<int>> groups; // 存储分组的 QVector
+
+    //const int groupSize = 50; // 每组的大小
+
+    //for (int i = 0; i < originalVector.size(); i += groupSize) {
+    //    int remainingSize = originalVector.size() - i;
+    //    int size = qMin(groupSize, remainingSize); // 确保不超过原始 QVector 大小
+
+    //    // 使用 QVector::mid 创建一个新的 QVector，共享原始数据的内存
+    //    QVector<int> group = originalVector.mid(i, size);
+
+    //    // 将每组添加到 groups 中
+    //    groups.append(group);
+    //}
+
 
 }
 
@@ -645,38 +676,22 @@ void WeiboSpiders::RemoveUid(QString name)
 
 }
 
-void WeiboSpiders::savePic(PhotoInfo info, QString folderPath, int retryCount)
+void WeiboSpiders::savePic(PhotoInfo &info, QNetworkRequest &request)
 {
-    manager = new QNetworkAccessManager(this);
-
-    QNetworkRequest request;
-
     QString mid = info.GetMid();
-    QString subFolderPath = folderPath + "/" + mid; // 子文件夹路径
-
+    QString subFolderPath = folderPath + "/" + mid;
     // 创建子文件夹
     QDir subDir(subFolderPath);
     if (!subDir.exists()) {
         subDir.mkpath(".");
     }
 
-    // 使用 info.GetPid() 下载文件并保存到子文件夹
-    // 请根据您的网络请求方式和文件保存逻辑来实现下载
-
-    QString uid = currentUser["uid"].toString();
-
     QString pid = info.GetPid();
-
     QString url = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
+    QString localFilePath = subFolderPath + "/" + pid + ".jpg";
 
-    request.setUrl(QUrl(url)); // 设置请求的URL
-    // 设置Cookie，将你的Cookie字符串替换成实际的Cookie值
-    QByteArray cookie = GetCookie().toUtf8();
-
-    request.setRawHeader("Cookie", cookie);
-
-    //反防爬虫机制
-    //request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+    request.setUrl(QUrl(url));
+    // 添加自定义头部信息
     request.setRawHeader("User-Agent", "Apifox/1.0.0 (https://apifox.com)");
     request.setRawHeader("Accept", "application/json, text/plain, */*");
     request.setRawHeader("Host", "tvax2.sinaimg.cn");
@@ -684,63 +699,39 @@ void WeiboSpiders::savePic(PhotoInfo info, QString folderPath, int retryCount)
 
     QNetworkReply* reply = manager->get(request);
 
-    // 连接finished信号以处理响应
-    connect(reply, &QNetworkReply::finished, this, [this, info, reply, pid, subFolderPath, folderPath, retryCount]() {
-        int reC = retryCount;
+    // 连接信号来处理下载进度和完成事件
+    connect(reply, &QNetworkReply::finished, [this, localFilePath, pid, subFolderPath, reply]() {
 
         if (reply->error() == QNetworkReply::NoError) {
-
-            QByteArray imageData = reply->readAll();
-            QString localFilePath = subFolderPath + "/" + pid + ".jpg"; // 本地文件路径
-
-            QFile localFile(localFilePath);
-            if (localFile.open(QIODevice::WriteOnly)) {
-                localFile.write(imageData);
-                localFile.close();
-
+            QFile file(localFilePath);
+            if (file.open(QIODevice::WriteOnly)) {
+                file.write(reply->readAll());
+                file.close();
                 currentNum++;
                 ui.downloadNum->setText(QString::number(currentNum));
-
                 qDebug() << "图片已下载到本地：" << localFilePath;
-
             }
-            else {
-                qDebug() << "无法打开本地文件：" << localFilePath;
-            }
-
-            reply->deleteLater(); // 释放资源
-
         }
         else {
+            errorNum++;
+            ui.errorNum->setText(QString::number(errorNum));
 
-            // 处理错误的响应
-            if (reC < 5) {
-                // 如果重试次数小于5，发起重试
-                savePic(info, folderPath, reC++);
+            QString errorFilePath = subFolderPath + "/" + pid + ".txt"; // 本地文件路径
+            QString imgUrl = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
+            QByteArray imgData = imgUrl.toUtf8(); // 将字符串转换为字节数组
+
+            QFile errorFile(errorFilePath);
+            if (errorFile.open(QIODevice::WriteOnly)) {
+                errorFile.write(imgData);
+                errorFile.close();
+                qDebug() << "错误图片已缓存到本地：" << errorFilePath;
             }
             else {
-                // 重试达到5次，将照片存入txt文件
-                errorNum++;
-                ui.errorNum->setText(QString::number(errorNum));
-
-                QString errorFilePath = subFolderPath + "/" + pid + ".txt"; // 本地文件路径
-                QString imgUrl = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
-                QByteArray imgData = imgUrl.toUtf8(); // 将字符串转换为字节数组
-
-                QFile errorFile(errorFilePath);
-                if (errorFile.open(QIODevice::WriteOnly)) {
-                    errorFile.write(imgData);
-                    errorFile.close();
-                    qDebug() << "错误图片已缓存到本地：" << errorFilePath;
-                }
-                else {
-                    qDebug() << "无法打开本地文件：" << errorFilePath;
-                }
+                qDebug() << "无法打开本地文件：" << errorFilePath;
             }
-            reply->deleteLater(); // 释放资源
-
         }
-        reply->deleteLater(); // 释放资源
+
+        reply->deleteLater(); // 清理资源
 
         proc = (double)(currentNum + errorNum) / fileNum * 100;
         ui.progressBar->setValue(proc);
@@ -760,7 +751,124 @@ void WeiboSpiders::savePic(PhotoInfo info, QString folderPath, int retryCount)
         }
 
 
+
+
+
         });
+    //manager = new QNetworkAccessManager(this);
+
+    //QNetworkRequest request;
+
+    //QString mid = info.GetMid();
+    //QString subFolderPath = folderPath + "/" + mid; // 子文件夹路径
+
+    //// 创建子文件夹
+    //QDir subDir(subFolderPath);
+    //if (!subDir.exists()) {
+    //    subDir.mkpath(".");
+    //}
+
+    //// 使用 info.GetPid() 下载文件并保存到子文件夹
+    //// 请根据您的网络请求方式和文件保存逻辑来实现下载
+
+    //QString uid = currentUser["uid"].toString();
+
+    //QString pid = info.GetPid();
+
+    //QString url = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
+
+    //request.setUrl(QUrl(url)); // 设置请求的URL
+    //// 设置Cookie，将你的Cookie字符串替换成实际的Cookie值
+    //QByteArray cookie = GetCookie().toUtf8();
+
+    //request.setRawHeader("Cookie", cookie);
+
+    ////反防爬虫机制
+    ////request.setRawHeader("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36");
+    //request.setRawHeader("User-Agent", "Apifox/1.0.0 (https://apifox.com)");
+    //request.setRawHeader("Accept", "application/json, text/plain, */*");
+    //request.setRawHeader("Host", "tvax2.sinaimg.cn");
+    //request.setRawHeader("Connection", "keep-alive");
+
+    //QNetworkReply* reply = manager->get(request);
+
+    //// 连接finished信号以处理响应
+    //connect(reply, &QNetworkReply::finished, this, [this, info, reply, pid, subFolderPath, folderPath, retryCount]() {
+    //    int reC = retryCount;
+
+    //    if (reply->error() == QNetworkReply::NoError) {
+
+    //        QByteArray imageData = reply->readAll();
+    //        QString localFilePath = subFolderPath + "/" + pid + ".jpg"; // 本地文件路径
+
+    //        QFile localFile(localFilePath);
+    //        if (localFile.open(QIODevice::WriteOnly)) {
+    //            localFile.write(imageData);
+    //            localFile.close();
+
+    //            currentNum++;
+    //            ui.downloadNum->setText(QString::number(currentNum));
+
+    //            qDebug() << "图片已下载到本地：" << localFilePath;
+
+    //        }
+    //        else {
+    //            qDebug() << "无法打开本地文件：" << localFilePath;
+    //        }
+
+    //        reply->deleteLater(); // 释放资源
+
+    //    }
+    //    else {
+
+    //        // 处理错误的响应
+    //        if (reC < 5) {
+    //            // 如果重试次数小于5，发起重试
+    //            savePic(info, folderPath, reC++);
+    //        }
+    //        else {
+    //            // 重试达到5次，将照片存入txt文件
+    //            errorNum++;
+    //            ui.errorNum->setText(QString::number(errorNum));
+
+    //            QString errorFilePath = subFolderPath + "/" + pid + ".txt"; // 本地文件路径
+    //            QString imgUrl = "https://wx1.sinaimg.cn/large/" + pid + ".jpg";
+    //            QByteArray imgData = imgUrl.toUtf8(); // 将字符串转换为字节数组
+
+    //            QFile errorFile(errorFilePath);
+    //            if (errorFile.open(QIODevice::WriteOnly)) {
+    //                errorFile.write(imgData);
+    //                errorFile.close();
+    //                qDebug() << "错误图片已缓存到本地：" << errorFilePath;
+    //            }
+    //            else {
+    //                qDebug() << "无法打开本地文件：" << errorFilePath;
+    //            }
+    //        }
+    //        reply->deleteLater(); // 释放资源
+
+    //    }
+    //    reply->deleteLater(); // 释放资源
+
+    //    proc = (double)(currentNum + errorNum) / fileNum * 100;
+    //    ui.progressBar->setValue(proc);
+
+
+    //    if (currentNum + errorNum == fileNum) {
+    //        QMessageBox::information(this, "通知", "下载完毕！");
+    //        //启用下载按钮
+    //        ui.downloadButton->setEnabled(true);
+
+    //        rqTimer->start();
+    //        rqTimer->singleShot(1000, this, [this]() {
+    //            manager->clearAccessCache();
+    //            rqTimer->stop();
+    //            });
+
+    //    }
+
+
+    //    });
 
 }
 
